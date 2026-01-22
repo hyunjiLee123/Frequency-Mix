@@ -239,6 +239,34 @@ def high_frequency_mixup(img1, img2, beta):
     return out
 
 
-freqmixings = [high_frequency_mixup]
+def high_frequency_mixup_new(img1, img2, beta):
+    a, b = get_ab(beta)
+    C, H, W = img1.shape
+    range_ratio = 0.6
+
+    center_h, center_w = H // 2, W // 2
+    offset_h = int(center_h * range_ratio)
+    offset_w = int(center_w * range_ratio)
+
+    img1 = img1 * 2 - 1
+    img2 = img2 * 2 - 1
+
+    fft1 = torch.fft.fftshift(torch.fft.fft2(img1))
+    fft2 = torch.fft.fftshift(torch.fft.fft2(img2))
+
+    high = torch.ones((H, W), device=img1.device)
+    high[center_h-offset_h:center_h+offset_h, center_w-offset_w:center_w+offset_w] = 0
+
+    for c in range(C):
+        fft1[c] = fft1[c] * (1 - high) + (a * fft1[c] + b * fft2[c]) * high
+
+    fft1 = torch.fft.ifftshift(fft1)
+
+    out = torch.fft.ifft2(fft1).real
+    out = torch.clamp((out + 1) / 2, 0, 1)
+
+    return out
+
+freqmixings = [high_frequency_mixup_new]
 pixmixmixings = [add, multiply]
 
